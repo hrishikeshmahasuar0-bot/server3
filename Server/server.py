@@ -1,21 +1,20 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from typing import List
 
 app = FastAPI()
 
-clients: List[WebSocket] = []
+clients = []
 usernames = {}
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
 
-    # receive username first
+    # receive username
     username = await websocket.receive_text()
     clients.append(websocket)
     usernames[websocket] = username
 
-    # join message
+    # notify join
     for client in clients:
         await client.send_text(f"🟢 {username} joined")
 
@@ -34,5 +33,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
     except WebSocketDisconnect:
         clients.remove(websocket)
+        usernames.pop(websocket, None)
+
         for client in clients:
             await client.send_text(f"🔴 {username} left")

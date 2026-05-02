@@ -5,20 +5,35 @@ app = FastAPI()
 clients = []
 usernames = {}
 
+async def broadcast(message: str):
+    disconnected = []
+    for client in clients:
+        try:
+            await client.send_text(message)
+        except:
+            disconnected.append(client)
+
+    # cleanup dead clients
+    for client in disconnected:
+        if client in clients:
+            clients.remove(client)
+            usernames.pop(client, None)
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
 
-    # receive username
-    username = await websocket.receive_text()
-    clients.append(websocket)
-    usernames[websocket] = username
-
-    # notify join
-    for client in clients:
-        await client.send_text(f"🟢 {username} joined")
-
     try:
+        # receive username
+        username = await websocket.receive_text()
+
+        clients.append(websocket)
+        usernames[websocket] = username
+
+        # announce join
+        await broadcast(f"🟢 {username} joined")
+
         while True:
             data = await websocket.receive_text()
 
@@ -28,12 +43,14 @@ async def websocket_endpoint(websocket: WebSocket):
                     if client != websocket:
                         await client.send_text(f"✏️ {username} is typing...")
             else:
-                for client in clients:
-                    await client.send_text(f"{username}: {data}")
+                await broadcast(f"{username}: {data}")
 
     except WebSocketDisconnect:
-        clients.remove(websocket)
-        usernames.pop(websocket, None)
+        if websocket in clients:
+            clients.remove(websocket)
 
-        for client in clients:
-            await client.send_text(f"🔴 {username} left")
+        username = usernames.pop(websocket, "Unknown")
+        await broadcast(f"🔴 {username} left")
+
+    except Exception as e:
+        print("Error:", e)

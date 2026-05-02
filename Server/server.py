@@ -1,4 +1,5 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+import os
 
 app = FastAPI()
 
@@ -13,7 +14,7 @@ async def broadcast(message: str):
         except:
             disconnected.append(client)
 
-    # cleanup dead clients
+    # remove disconnected clients
     for client in disconnected:
         if client in clients:
             clients.remove(client)
@@ -31,13 +32,12 @@ async def websocket_endpoint(websocket: WebSocket):
         clients.append(websocket)
         usernames[websocket] = username
 
-        # announce join
+        # join message
         await broadcast(f"🟢 {username} joined")
 
         while True:
             data = await websocket.receive_text()
 
-            # typing indicator
             if data == "__typing__":
                 for client in clients:
                     if client != websocket:
@@ -54,3 +54,13 @@ async def websocket_endpoint(websocket: WebSocket):
 
     except Exception as e:
         print("Error:", e)
+
+
+# 👇 THIS PART IS IMPORTANT FOR RENDER
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "server:app",
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 10000))
+    )

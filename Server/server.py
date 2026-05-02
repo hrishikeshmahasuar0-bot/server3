@@ -3,6 +3,10 @@ import os
 
 app = FastAPI()
 
+@app.get("/")
+def home():
+    return {"status": "WORKING"}
+
 clients = []
 usernames = {}
 
